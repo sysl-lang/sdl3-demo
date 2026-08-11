@@ -1,0 +1,5 @@
+*.syslib
+*.o
+.sysl/
+sdl3-demo
+screenshot.png

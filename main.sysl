@@ -1,0 +1,275 @@
+// sysl + SDL3 — a ball, a trail, a line of text, a note on every bounce, and a screenshot key.
+//
+// **Four packages, and no asset file.** A demo that shipped a font, a picture and a sound would be
+// demonstrating that git still holds three files; everything here is made at run time instead. The
+// font is one the machine already has, the sound is a sine wave SDL_mixer generates, and the only
+// image in the program is one it writes: `S` reads the frame back off the renderer and saves it as
+// a PNG. That is `sdl3-image` used as an encoder, which is the half of it a demo usually skips.
+//
+// The whole program is one frame loop: read what happened, advance the world by however long the
+// last frame took, draw it, present. Everything below is in that order.
+
+import sh.sysl.sdl3.*
+import sh.sysl.sdl3_ttf.*
+import sh.sysl.sdl3_image.*
+import sh.sysl.sdl3_mixer.*
+import sysl.buf.{Buf, buf}
+import sysl.fs.is_file
+
+const WIDTH: i32 = 800
+const HEIGHT: i32 = 600
+
+// Pixels per second per second, and how much of its speed a wall gives back.
+const GRAVITY: real = 1500.0
+const BOUNCE: real = 0.84
+const RADIUS: real = 26.0
+
+// How many past positions the trail is drawn through. It is a length in *frames* rather than in
+// pixels, so the trail stretches when the ball is fast — which is what makes it read as speed.
+const TRAIL: usize = 24
+
+// The ball, in real coordinates and real velocities. The renderer works in `f32` and the physics
+// works in `real`, with the conversion at the draw call: a step of a sixtieth of a second
+// accumulates, and accumulating in single precision is how a bounce slowly drifts into the wall.
+struct Ball
+    x: real
+    y: real
+    vx: real
+    vy: real
+
+    // Advance by `dt` seconds and bounce off the walls. `true` if it hit one, which is what the
+    // note and the counter are driven by.
+    step(*self, dt: real) -> bool
+        var hit = false
+
+        self.vy += GRAVITY * dt
+        self.x += self.vx * dt
+        self.y += self.vy * dt
+
+        if self.x < RADIUS
+            self.x = RADIUS
+            self.vx = -self.vx * BOUNCE
+            hit = true
+        elif self.x > real(WIDTH) - RADIUS
+            self.x = real(WIDTH) - RADIUS
+            self.vx = -self.vx * BOUNCE
+            hit = true
+
+        if self.y < RADIUS
+            self.y = RADIUS
+            self.vy = -self.vy * BOUNCE
+            hit = true
+        elif self.y > real(HEIGHT) - RADIUS
+            self.y = real(HEIGHT) - RADIUS
+            self.vy = -self.vy * BOUNCE
+            hit = true
+
+            // A ball losing a sixth of its speed per bounce settles into a buzz along the floor
+            // and the demo stops being one. Kicking it back up whenever it is nearly stopped is
+            // the single place here that is a choice rather than physics.
+            if self.vy > -200.0 then self.vy = -680.0
+
+        hit
+    end step
+end Ball
+
+// A font the machine already has. Checking the paths beats hard-coding one, and saying so beats
+// failing forty lines later on a null handle.
+font_path() -> string
+    val candidates = [
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    ]
+
+    for i in 0..<candidates.len
+        if is_file(candidates[i]) then return candidates[i]
+
+    ""
+end font_path
+
+// Draw the frame back to disk. Read *before* `present`, since presenting is allowed to leave the
+// backbuffer undefined — a screenshot taken afterwards is a bet on the driver.
+save_screenshot(renderer: Renderer, path: string)
+    renderer.read_pixels() match
+        Some(shot) ->
+            if save_png(shot, path) then print(s"wrote $path") else print(s"could not write $path: ${error()}")
+
+            shot.destroy()
+        None -> print(s"could not read the frame back: ${error()}")
+end save_screenshot
+
+main(args: []string) -> Result[unit, string]
+    // `--shot <path>` runs the whole program with no display and no sound card, for a fixed number
+    // of frames of a fixed length, and writes what it drew. That makes a demo something a machine
+    // can check rather than something a person has to look at — SDL's dummy drivers create windows,
+    // renderers, textures and audio devices into memory, so every line below still runs.
+    val offscreen = args.len > 2 && args[1] == "--shot"
+
+    if offscreen
+        set_hint(HINT_VIDEO_DRIVER, "dummy")
+        set_hint("SDL_AUDIO_DRIVER", "dummy")
+
+    val path = font_path()
+
+    if path == "" then return Err("none of the fonts this demo knows about is on this machine")
+
+    if !init(INIT_VIDEO | INIT_AUDIO) then return Err(s"SDL would not start: ${error()}")
+
+    if !ttf_init() || !mix_init() then return Err(s"the companion libraries would not start: ${error()}")
+
+    val window = create_window("sysl + SDL3", WIDTH, HEIGHT,
+        if offscreen then WINDOW_HIDDEN else 0).expect("a window")
+    val renderer = window.create_renderer().expect("a renderer")
+    val font = open_font(path, 20.0).expect("the font opened")
+    val mixer = open_mixer().expect("an audio device")
+
+    // Pace on the display's refresh rather than on a sleep. The step is measured either way, so a
+    // machine that ignores this still runs at the right speed — it just runs hot.
+    renderer.set_vsync(true)
+
+    // The trail is drawn with alpha, and a renderer starts with blending off, so its faded end
+    // would come out solid without this.
+    renderer.set_blend_mode(BLENDMODE_BLEND)
+
+    // One voice per note, each with its own sound, so two bounces close together overlap instead of
+    // cutting each other off. A note is chosen by where the ball hit, which turns the physics into
+    // something you can hear the shape of.
+    val notes = [262, 330, 392, 523, 659]
+    var sounds: Buf[Audio] = buf()
+    var voices: Buf[Track] = buf()
+
+    for i in 0..<notes.len
+        val sound = mixer.sine_wave(notes[i], 0.25, 90).expect("a note")
+        val voice = mixer.create_track().expect("a voice")
+
+        voice.set_audio(sound)
+        sounds.push(sound)
+        voices.push(voice)
+
+    val hint = font.texture(renderer, "Escape quits    S saves a screenshot",
+        rgb(130, 140, 160)).expect("the hint rendered")
+
+    var ball = Ball(120.0, 90.0, 420.0, 0.0)
+    var trail: Buf[FPoint] = buf()
+    var bounces = 0
+    var fps = 0
+    var frames = 0
+    var counted_at = ticks()
+
+    // **The status line is rebuilt only when what it says changes.** Rendering a string is a glyph
+    // raster and a texture upload, and doing it sixty times a second to draw the same two numbers
+    // is the mistake this binding makes easy — so the numbers it was last built from are kept
+    // beside it, and the frame that changes one is the frame that pays.
+    var status = font.texture(renderer, s"bounces: 0    0 fps", WHITE).expect("the status rendered")
+    var shown_bounces = 0
+    var shown_fps = 0
+
+    var last = ticks_ns()
+    var elapsed = 0
+    var running = true
+
+    while running
+        var shoot = false
+
+        while true
+            poll_event() match
+                Some(e) ->
+                    if e.kind == EVENT_QUIT then running = false
+                    elif e.kind == EVENT_KEY_DOWN && !e.key_repeat()
+                        if e.key_scancode() == SCANCODE_ESCAPE then running = false
+                        elif e.key_scancode() == SCANCODE_S then shoot = true
+                None -> break
+
+        // The step the world is advanced by is the time the last frame actually took, so the ball
+        // falls at the same rate whatever the machine manages. It is clamped because a window being
+        // dragged stops the loop for as long as the mouse is held, and an unclamped step then
+        // teleports the ball through a wall.
+        //
+        // Offscreen the step is fixed instead, at a sixtieth of a second. Nothing is throttling the
+        // loop there — no display to wait for — so a measured step would be microseconds and the
+        // picture would be of a ball that has not moved. A fixed one also makes the screenshot the
+        // same every time, which is what makes it worth comparing.
+        val now = ticks_ns()
+        var dt = 1.0 / 60.0
+
+        if !offscreen then dt = if now - last > 100_000_000u64 then 0.1 else real(now - last) / 1.0e9
+
+        last = now
+        elapsed += 1
+
+        // Two and a half seconds of it, which is four or five bounces and a full trail.
+        if offscreen && elapsed == 150 then shoot = true
+        elif offscreen && elapsed > 150 then running = false
+
+        if ball.step(dt)
+            bounces += 1
+
+            val i = usize(ball.x / real(WIDTH) * real(notes.len))
+
+            voices.view()[if i < notes.len then i else notes.len - 1].play()
+
+        trail.push(FPoint(f32(ball.x), f32(ball.y)))
+
+        if trail.len() > TRAIL then trail.remove(0)
+
+        frames += 1
+
+        if ticks() - counted_at >= 1000u64
+            fps = frames
+            frames = 0
+            counted_at += 1000
+
+        if bounces != shown_bounces || fps != shown_fps
+            status.destroy()
+
+            status = font.texture(renderer, s"bounces: $bounces    $fps fps", WHITE).expect("the status rendered")
+            shown_bounces = bounces
+            shown_fps = fps
+
+        renderer.clear_to(rgb(18, 20, 28))
+
+        // The trail, oldest first, thickening and brightening towards the ball.
+        val points = trail.view()
+
+        for i in 1..<points.len
+            val f = real(i) / real(points.len)
+            val a = points[i - 1]
+            val b = points[i]
+
+            renderer.thick_line(a.x, a.y, b.x, b.y, f32(2.0 + 10.0 * f),
+                Color(240, 140, 90, u8(200.0 * f)))
+
+        renderer.fill_circle(f32(ball.x), f32(ball.y), f32(RADIUS), rgb(240, 170, 90))
+        renderer.copy_at(status, 16.0, 14.0)
+        renderer.copy_at(hint, 16.0, hint_y(HEIGHT, hint))
+
+        if shoot then save_screenshot(renderer, if offscreen then args[2] else "screenshot.png")
+
+        renderer.present()
+
+    for i in 0..<voices.len()
+        voices.view()[i].destroy()
+        sounds.view()[i].destroy()
+
+    status.destroy()
+    hint.destroy()
+    mixer.destroy()
+    font.close()
+    renderer.destroy()
+    window.destroy()
+    mix_quit()
+    ttf_quit()
+    quit()
+    Ok(())
+end main
+
+// Where a line of text sits so that its bottom edge is a margin above the window's.
+hint_y(height: i32, t: Texture) -> f32
+    val (_, h) = t.size()
+
+    f32(height) - h - 14.0
+end hint_y

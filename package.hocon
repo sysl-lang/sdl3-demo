@@ -1,0 +1,33 @@
+// A worked example on all four SDL3 packages.
+//
+// The split between them is the thing this program is here to show: a link directive is never
+// pruned, so one package holding SDL3, SDL3_ttf, SDL3_image and SDL3_mixer would put all four
+// libraries on the link line of every program that used any of it. They are separate, and a program
+// that wants all four says so — which is what this block is.
+//
+// The coordinates are identities rather than URLs, so they carry no `https://`, and each `version`
+// is the tag `v<version>` on that repository. `sdl3` is named here as well as being pulled in by
+// the other three, because this program calls it directly; the resolver takes the highest version
+// asked for, which is why the companions naming `0.1.0` and this naming `0.1.2` is not a conflict.
+
+package {
+  name    = "sdl3-demo"
+  version = "0.1.0"
+}
+
+dependencies {
+  sdl3       { git = "github.com/sysl-lang/sdl3",       version = "0.1.2" }
+  sdl3-ttf   { git = "github.com/sysl-lang/sdl3-ttf",   version = "0.1.0" }
+  sdl3-image { git = "github.com/sysl-lang/sdl3-image", version = "0.1.0" }
+  sdl3-mixer { git = "github.com/sysl-lang/sdl3-mixer", version = "0.1.0" }
+}
+
+// The union of what the four ask for, said again here because a program states its own needs rather
+// than inheriting them silently: `posix` because SDL opens devices and talks to a window server,
+// `os` for the screenshot this writes and the font it reads, and `alloc` because a frame's geometry
+// and every string handed to C is storage with a lifetime.
+requires {
+  os    = true
+  posix = true
+  alloc = true
+}
