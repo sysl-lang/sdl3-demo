@@ -28,7 +28,7 @@ a package. `CPATH` and `LIBRARY_PATH` do the same job if the setting never chang
 | [`sdl3`](https://github.com/sysl-lang/sdl3) | the window, the renderer, the event queue, and the clock the frame loop is stepped by |
 | [`sdl3-ttf`](https://github.com/sysl-lang/sdl3-ttf) | the two lines of text, rendered from a font the machine already has |
 | [`sdl3-image`](https://github.com/sysl-lang/sdl3-image) | the screenshot — used as an *encoder*, which is the half of it a demo usually skips |
-| [`sdl3-mixer`](https://github.com/sysl-lang/sdl3-mixer) | a note on each bounce, pitched by where the ball hit |
+| [`sdl3-mixer`](https://github.com/sysl-lang/sdl3-mixer) | a note on each bounce, pitched by where the ball hit — generated into a buffer, not loaded from a file |
 
 **They are four packages rather than one because a link directive is never pruned.** Every unit of a
 compilation contributes its libraries whether the program reaches them or not, so a single package
@@ -45,8 +45,8 @@ first time one was moved.
 - **The font** is one the machine already has — the program tries the usual places on macOS and on
   the common Linux layouts, and says so plainly if none of them is there rather than failing later
   on a null handle.
-- **The sound** is `MIX_CreateSineWaveAudio`, a tone SDL_mixer generates. There are five of them, on
-  five voices, so two bounces close together overlap instead of cutting each other off.
+- **The sound** is five tones the program computes into a buffer and hands to `load_raw`. They sit
+  on five voices, so two bounces close together overlap instead of cutting each other off.
 - **The picture** is the one the program writes.
 
 ## The parts worth reading
@@ -59,6 +59,14 @@ teleports the ball through a wall.
 **The status line is rebuilt only when what it says changes.** Rendering a string is a glyph raster
 and a texture upload; doing it sixty times a second to draw the same two numbers is the mistake this
 binding makes easy. The numbers the texture was last built from are kept beside it.
+
+**The notes are enveloped, and that is not a refinement.** This started on SDL_mixer's `sine_wave`,
+which is exactly `ms` of raw sine — so the sound stopped wherever in its cycle the length happened to
+land. Ninety milliseconds of 262 Hz is 23.58 cycles, ending at about half amplitude; at 659 Hz it
+ends at 0.93 of full amplitude. A step like that is **broadband**: its energy is spread across the
+spectrum rather than sitting at the note's pitch, so every one is heard as the same high click
+whatever was playing. An envelope that reaches zero cannot do that at any phase, and the rise at the
+front turns a beep into something plucked. It is fifteen lines and a `load_raw`.
 
 **The screenshot is read before `present`, not after.** Presenting is allowed to leave the
 backbuffer undefined, so a shot taken afterwards is a bet on the driver.

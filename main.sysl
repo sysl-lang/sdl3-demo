@@ -15,6 +15,8 @@ import sh.sysl.sdl3_image.*
 import sh.sysl.sdl3_mixer.*
 import sysl.buf.{Buf, buf}
 import sysl.fs.is_file
+import sysl.math.{Float, pi}
+import sysl.slices.as_ptr
 
 const WIDTH: i32 = 800
 const HEIGHT: i32 = 600
@@ -27,6 +29,9 @@ const RADIUS: real = 26.0
 // How many past positions the trail is drawn through. It is a length in *frames* rather than in
 // pixels, so the trail stretches when the ball is fast — which is what makes it read as speed.
 const TRAIL: usize = 24
+
+// Sample frames per second for the notes the program generates.
+const RATE: i32 = 48000
 
 // The ball, in real coordinates and real velocities. The renderer works in `f32` and the physics
 // works in `real`, with the conversion at the draw call: a step of a sixtieth of a second
@@ -91,6 +96,40 @@ font_path() -> string
     ""
 end font_path
 
+// A plucked note: a sine wave under an envelope that rises out of silence and falls back into it.
+//
+// **The envelope is the whole point, and leaving it out is audible.** SDL_mixer's `sine_wave` is
+// what this started as, and it is exactly `ms` of raw sine — so the sound stops wherever in the
+// cycle it had got to. Ninety milliseconds of 262 Hz is 23.58 cycles, which ends at about half
+// amplitude and then drops to zero in a single sample; at 659 Hz it ends at 0.93 of full amplitude.
+// **A step like that is broadband** — its energy is spread across the whole spectrum rather than
+// sitting at the note's pitch — so every one of them is heard as the same high click, whatever was
+// playing. An envelope that reaches zero cannot do that at any phase, and the rise at the front
+// turns a beep into something plucked.
+blip(mixer: Mixer, hz: real, ms: real) -> Option[Audio]
+    val length = ms / 1000.0
+    val attack = 0.004
+    var samples: Buf[f32] = buf()
+
+    for i in 0..<usize(length * real(RATE))
+        val t = real(i) / real(RATE)
+        var env = t / attack
+
+        if t >= attack
+            val left = 1.0 - (t - attack) / (length - attack)
+
+            env = left * left
+
+        samples.push(f32((2.0 * pi * hz * t).sin() * 0.3 * env))
+
+    // `load_raw` takes bytes, and what is in hand is floats — the same storage, read at a different
+    // width. SDL_mixer copies what it is given, so the buffer can go the moment this returns.
+    val v = samples.view()
+    val bytes: *u8 = ptr_cast(as_ptr(v))
+
+    mixer.load_raw(bytes[0..<v.len * 4], AudioSpec(AUDIO_F32, 1, RATE))
+end blip
+
 // Draw the frame back to disk. Read *before* `present`, since presenting is allowed to leave the
 // backbuffer undefined — a screenshot taken afterwards is a bet on the driver.
 save_screenshot(renderer: Renderer, path: string)
@@ -143,7 +182,7 @@ main(args: []string) -> Result[unit, string]
     var voices: Buf[Track] = buf()
 
     for i in 0..<notes.len
-        val sound = mixer.sine_wave(notes[i], 0.25, 90).expect("a note")
+        val sound = blip(mixer, real(notes[i]), 220.0).expect("a note")
         val voice = mixer.create_track().expect("a voice")
 
         voice.set_audio(sound)

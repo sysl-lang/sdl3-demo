@@ -19,7 +19,7 @@ dependencies {
   sdl3       { git = "github.com/sysl-lang/sdl3",       version = "0.1.2" }
   sdl3-ttf   { git = "github.com/sysl-lang/sdl3-ttf",   version = "0.1.0" }
   sdl3-image { git = "github.com/sysl-lang/sdl3-image", version = "0.1.0" }
-  sdl3-mixer { git = "github.com/sysl-lang/sdl3-mixer", version = "0.1.0" }
+  sdl3-mixer { git = "github.com/sysl-lang/sdl3-mixer", version = "0.1.1" }
 }
 
 // The union of what the four ask for, said again here because a program states its own needs rather
