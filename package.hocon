@@ -24,10 +24,10 @@ dependencies {
 
 // The union of what the four ask for, said again here because a program states its own needs rather
 // than inheriting them silently: `posix` because SDL opens devices and talks to a window server,
-// `os` for the screenshot this writes and the font it reads, and `alloc` because a frame's geometry
+// `os` for the screenshot this writes and the font it reads, and `heap` because a frame's geometry
 // and every string handed to C is storage with a lifetime.
 requires {
   os    = true
   posix = true
-  alloc = true
+  heap  = true
 }
