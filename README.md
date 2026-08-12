@@ -12,7 +12,7 @@ display and no sound card and writes what it drew.
 
 ```
 brew install sdl3 sdl3_ttf sdl3_image sdl3_mixer
-sysl run . --include-path /opt/homebrew/include --link-path /opt/homebrew/lib
+sysl run . --link-path /opt/homebrew/lib
 ```
 
 Both flags are needed and neither can live in `package.hocon` — `design/15 §8` refuses a field for a
