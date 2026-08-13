@@ -13,6 +13,13 @@ import sh.sysl.sdl3.*
 import sh.sysl.sdl3_ttf.*
 import sh.sysl.sdl3_image.*
 import sh.sysl.sdl3_mixer.*
+
+// **SDL's own masks and scancodes come from the binding's C layer**, which is where they belong:
+// they are SDL's numbers, and a program names the ones it uses. Everything pleasant — the handles,
+// the enumerations, the constructors — is in the four modules above.
+import sh.sysl.sdl3.c.{AudioSpec, INIT_AUDIO, INIT_VIDEO, SCANCODE_ESCAPE, SCANCODE_S,
+                       WINDOW_HIDDEN}
+import sh.sysl.sdl3.c.FPoint
 import sysl.buf.{Buf, buf}
 import sysl.fs.is_file
 import sysl.math.{Float, pi}
@@ -106,7 +113,7 @@ end font_path
 // sitting at the note's pitch — so every one of them is heard as the same high click, whatever was
 // playing. An envelope that reaches zero cannot do that at any phase, and the rise at the front
 // turns a beep into something plucked.
-blip(mixer: Mixer, hz: real, ms: real) -> Option[Audio]
+blip(mixer: &Mixer, hz: real, ms: real) -> Option[&Audio]
     val length = ms / 1000.0
     val attack = 0.004
     var samples: Buf[f32] = buf()
@@ -127,17 +134,15 @@ blip(mixer: Mixer, hz: real, ms: real) -> Option[Audio]
     val v = samples.view()
     val bytes: *u8 = ptr_cast(as_ptr(v))
 
-    mixer.load_raw(bytes[0..<v.len * 4], AudioSpec(AUDIO_F32, 1, RATE))
+    mixer.load_raw(bytes[0..<v.len * 4], AudioSpec(AudioFormat.F32.code(), 1, RATE))
 end blip
 
 // Draw the frame back to disk. Read *before* `present`, since presenting is allowed to leave the
 // backbuffer undefined — a screenshot taken afterwards is a bet on the driver.
-save_screenshot(renderer: Renderer, path: string)
+save_screenshot(renderer: &Renderer, path: string)
     renderer.read_pixels() match
         Some(shot) ->
             if save_png(shot, path) then print(s"wrote $path") else print(s"could not write $path: ${error()}")
-
-            shot.destroy()
         None -> print(s"could not read the frame back: ${error()}")
 end save_screenshot
 
@@ -172,14 +177,14 @@ main(args: []string) -> Result[unit, string]
 
     // The trail is drawn with alpha, and a renderer starts with blending off, so its faded end
     // would come out solid without this.
-    renderer.set_blend_mode(BLENDMODE_BLEND)
+    renderer.set_blend_mode(BlendMode.Blend)
 
     // One voice per note, each with its own sound, so two bounces close together overlap instead of
     // cutting each other off. A note is chosen by where the ball hit, which turns the physics into
     // something you can hear the shape of.
     val notes = [262, 330, 392, 523, 659]
-    var sounds: Buf[Audio] = buf()
-    var voices: Buf[Track] = buf()
+    var sounds: Buf[&Audio] = buf()
+    var voices: Buf[&Track] = buf()
 
     for i in 0..<notes.len
         val sound = blip(mixer, real(notes[i]), 220.0).expect("a note")
@@ -217,8 +222,8 @@ main(args: []string) -> Result[unit, string]
         while true
             poll_event() match
                 Some(e) ->
-                    if e.kind == EVENT_QUIT then running = false
-                    elif e.kind == EVENT_KEY_DOWN && !e.key_repeat()
+                    if e.kind() == EventKind.Quit then running = false
+                    elif e.kind() == EventKind.KeyDown && !e.key_repeat()
                         if e.key_scancode() == SCANCODE_ESCAPE then running = false
                         elif e.key_scancode() == SCANCODE_S then shoot = true
                 None -> break
@@ -263,7 +268,6 @@ main(args: []string) -> Result[unit, string]
             counted_at += 1000
 
         if bounces != shown_bounces || fps != shown_fps
-            status.destroy()
 
             status = font.texture(renderer, s"bounces: $bounces    $fps fps", WHITE).expect("the status rendered")
             shown_bounces = bounces
@@ -290,24 +294,18 @@ main(args: []string) -> Result[unit, string]
 
         renderer.present()
 
-    for i in 0..<voices.len()
-        voices.view()[i].destroy()
-        sounds.view()[i].destroy()
-
-    status.destroy()
-    hint.destroy()
-    mixer.destroy()
-    font.close()
-    renderer.destroy()
-    window.destroy()
-    mix_quit()
-    ttf_quit()
-    quit()
+    // **Nothing is torn down here, and that is the change this version is about.** Every handle is
+    // a `&T` with a destructor, so the window, the renderer, the font, the mixer, the voices and
+    // the two labels all go as `main` returns — in the reverse of the order they were made, which
+    // is the order SDL needs. The three `quit` calls that used to close the paragraph are gone with
+    // them: `SDL_Quit` frees everything SDL made, so calling it while a handle is still alive would
+    // free the same object twice. A program that simply ends does the same work and cannot get the
+    // order wrong.
     Ok(())
 end main
 
 // Where a line of text sits so that its bottom edge is a margin above the window's.
-hint_y(height: i32, t: Texture) -> f32
+hint_y(height: i32, t: &Texture) -> f32
     val (_, h) = t.size()
 
     f32(height) - h - 14.0

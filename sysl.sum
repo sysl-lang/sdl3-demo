@@ -1,4 +1,8 @@
 github.com/sysl-lang/sdl3 v0.1.2 sha256:c13d558f98d371e58031d9682b96d4f648486ee0924e87102cb08b6a98782263
+github.com/sysl-lang/sdl3 v0.2.0 sha256:4287b27d67de90c794e2cd98a6817d0790bb456c59e2f3a26f923802bc10d867
 github.com/sysl-lang/sdl3-image v0.1.0 sha256:ceb484d660b099604686587044e7f7567c7e5924a3673a172a8c43accdf8709d
+github.com/sysl-lang/sdl3-image v0.2.0 sha256:29c74c4e40e579984d5a9d44487a906e3f7ec8be835c1c1baf3e5e51fbc701ff
 github.com/sysl-lang/sdl3-mixer v0.1.1 sha256:6e0311f6bd8251eb30168e3fa9c3ade6d3afe7eed3c9fc220dba7bafd449f645
+github.com/sysl-lang/sdl3-mixer v0.2.0 sha256:1a3c0b74656676a02f3adf6d85eb19e494a1faf746a38f2b782757c4b6a3e10b
 github.com/sysl-lang/sdl3-ttf v0.1.0 sha256:80a5791ceb4b31680d8c665bdd5fd0c3688e14be816329050d03bf6654e50930
+github.com/sysl-lang/sdl3-ttf v0.2.0 sha256:cc70a92f111b5ce6a383985087722ec8294391d99e63634a4c2cc95c64887261

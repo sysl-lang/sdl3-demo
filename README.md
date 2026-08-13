@@ -12,14 +12,37 @@ display and no sound card and writes what it drew.
 
 ```
 brew install sdl3 sdl3_ttf sdl3_image sdl3_mixer
-sysl run . --link-path /opt/homebrew/lib
+sysl run . --include-path sdl3=/opt/homebrew/include \
+           --include-path sdl3_ttf=/opt/homebrew/include \
+           --link-path /opt/homebrew/lib
 ```
 
-Both flags are needed and neither can live in `package.hocon` — `design/15 §8` refuses a field for a
-library prefix, because where Homebrew put itself is a fact about a laptop rather than a property of
-a package. `CPATH` and `LIBRARY_PATH` do the same job if the setting never changes on your machine.
+**The two include paths are named**, because they answer the header requirements two of the packages
+declare: `sh.sysl.sdl3.c` and `sh.sysl.sdl3_ttf.c` ask the C compiler for SDL's own constants rather
+than transcribing them, so they read a header at compile time and not only at link time. Forget one
+and the refusal names the package and says where its headers usually live.
+
+None of these can live in `package.hocon` — `design/15 §8` refuses a field for a library prefix,
+because where Homebrew put itself is a fact about a laptop rather than a property of a package.
+`CPATH` and `LIBRARY_PATH` do the same job if the setting never changes on your machine.
 
 **Escape** quits, and **S** writes `screenshot.png` beside the program.
+
+## Nothing is torn down
+
+There is no `destroy` anywhere in this program, and no `quit` at the end of `main`. Every handle the
+four packages hand out — the window, the renderer, the font, the mixer, the five voices, the two
+labels — is a `&T` with a destructor, so each goes as `main` returns, in the reverse of the order it
+was made, which is the order SDL needs.
+
+The status line is where that reads best. It is rebuilt whenever the bounce count or the frame rate
+changes, and the assignment is the whole of it: the texture that was there goes when the last
+reference to it does.
+
+```sysl
+if bounces != shown_bounces || fps != shown_fps
+    status = font.texture(renderer, s"bounces: $bounces    $fps fps", WHITE).expect("…")
+```
 
 ## What it is showing
 
