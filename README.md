@@ -12,19 +12,20 @@ display and no sound card and writes what it drew.
 
 ```
 brew install sdl3 sdl3_ttf sdl3_image sdl3_mixer
-sysl run . --include-path sdl3=/opt/homebrew/include \
-           --include-path sdl3_ttf=/opt/homebrew/include \
-           --link-path /opt/homebrew/lib
+sysl run .
 ```
 
-**The two include paths are named**, because they answer the header requirements two of the packages
-declare: `sh.sysl.sdl3.c` and `sh.sysl.sdl3_ttf.c` ask the C compiler for SDL's own constants rather
-than transcribing them, so they read a header at compile time and not only at link time. Forget one
-and the refusal names the package and says where its headers usually live.
+**That is the whole command.** Each of the four packages names the library it binds, and pkg-config is
+asked where that library's headers and link line are — so nothing about this machine's layout is typed
+here. Install a library and it is found; leave one out and the refusal names it.
 
-None of these can live in `package.hocon` — `design/15 §8` refuses a field for a library prefix,
-because where Homebrew put itself is a fact about a laptop rather than a property of a package.
-`CPATH` and `LIBRARY_PATH` do the same job if the setting never changes on your machine.
+The prefix still cannot live in `package.hocon` — `design/15 §8` refuses a field for one, because
+where Homebrew put itself is a fact about a laptop rather than a property of a package. What changed
+is who answers the question, not who is allowed to ask it. On a machine with no pkg-config, or a
+prefix you built yourself, `--include-path sdl3=<dir>` and `--link-path <dir>` still answer it and
+take precedence; `CPATH` and `LIBRARY_PATH` work too.
+
+**Needs sysl 0.0.56**, which is where a package gained the ability to name its library.
 
 **Escape** quits, and **S** writes `screenshot.png` beside the program.
 
