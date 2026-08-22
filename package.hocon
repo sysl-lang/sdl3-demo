@@ -8,18 +8,19 @@
 // The coordinates are identities rather than URLs, so they carry no `https://`, and each `version`
 // is the tag `v<version>` on that repository. `sdl3` is named here as well as being pulled in by
 // the other three, because this program calls it directly; the resolver takes the highest version
-// asked for, which is why the companions naming `0.1.0` and this naming `0.1.2` is not a conflict.
+// asked for, which is why `sdl3-ttf` and `sdl3-image` naming sdl3 `0.3.0` while this names `0.3.1`
+// is not a conflict.
 
 package {
   name    = "sdl3-demo"
-  version = "0.2.0"
+  version = "0.2.1"
 }
 
 dependencies {
-  sdl3       { git = "github.com/sysl-lang/sdl3",       version = "0.3.0" }
+  sdl3       { git = "github.com/sysl-lang/sdl3",       version = "0.3.1" }
   sdl3-ttf   { git = "github.com/sysl-lang/sdl3-ttf",   version = "0.3.0" }
   sdl3-image { git = "github.com/sysl-lang/sdl3-image", version = "0.3.0" }
-  sdl3-mixer { git = "github.com/sysl-lang/sdl3-mixer", version = "0.3.0" }
+  sdl3-mixer { git = "github.com/sysl-lang/sdl3-mixer", version = "0.3.1" }
 }
 
 // The union of what the four ask for, said again here because a program states its own needs rather

@@ -14,12 +14,11 @@ import sh.sysl.sdl3_ttf.*
 import sh.sysl.sdl3_image.*
 import sh.sysl.sdl3_mixer.*
 
-// **SDL's own masks and scancodes come from the four modules above**, along with everything else a
-// program names: a number is as much this binding's surface as a handle is, and since 0.3.0 none of
-// it asks a program to import a C layer. `AudioSpec` and `FPoint` are the exception and are ABI
-// structs rather than numbers -- sdl3's own declarations take them, so they cannot move up without
-// a cycle.
-import sh.sysl.sdl3.c.{AudioSpec, FPoint}
+// **Everything this program names comes from the four modules above**, and that is the whole point
+// of the split: a number is as much a binding's surface as a handle is, and an ABI struct a drawing
+// call takes is too. `AudioSpec` and `FPoint` are declared in `sh.sysl.sdl3.c`, because sdl3's own
+// declarations take them and a module may not depend on one that depends on it — but sdl3 names them
+// from its pleasant layer as transparent aliases, so nothing here has to know that.
 import sysl.buf.{Buf, buf}
 import sysl.fs.is_file
 import sysl.math.{Float, pi}
