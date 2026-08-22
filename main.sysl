@@ -14,12 +14,12 @@ import sh.sysl.sdl3_ttf.*
 import sh.sysl.sdl3_image.*
 import sh.sysl.sdl3_mixer.*
 
-// **SDL's own masks and scancodes come from the binding's C layer**, which is where they belong:
-// they are SDL's numbers, and a program names the ones it uses. Everything pleasant — the handles,
-// the enumerations, the constructors — is in the four modules above.
-import sh.sysl.sdl3.c.{AudioSpec, INIT_AUDIO, INIT_VIDEO, SCANCODE_ESCAPE, SCANCODE_S,
-                       WINDOW_HIDDEN}
-import sh.sysl.sdl3.c.FPoint
+// **SDL's own masks and scancodes come from the four modules above**, along with everything else a
+// program names: a number is as much this binding's surface as a handle is, and since 0.3.0 none of
+// it asks a program to import a C layer. `AudioSpec` and `FPoint` are the exception and are ABI
+// structs rather than numbers -- sdl3's own declarations take them, so they cannot move up without
+// a cycle.
+import sh.sysl.sdl3.c.{AudioSpec, FPoint}
 import sysl.buf.{Buf, buf}
 import sysl.fs.is_file
 import sysl.math.{Float, pi}
