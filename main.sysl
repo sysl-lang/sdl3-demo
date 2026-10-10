@@ -115,7 +115,7 @@ end font_path
 blip(mixer: &Mixer, hz: real, ms: real) -> Option[&Audio]
     val length = ms / 1000.0
     val attack = 0.004
-    var samples: Buf[f32] = buf()
+    val samples: Buf[f32] = buf()
 
     for i in 0..<usize(length * real(RATE))
         val t = real(i) / real(RATE)
@@ -182,8 +182,8 @@ main(args: []string) -> Result[unit, string]
     // cutting each other off. A note is chosen by where the ball hit, which turns the physics into
     // something you can hear the shape of.
     val notes = [262, 330, 392, 523, 659]
-    var sounds: Buf[&Audio] = buf()
-    var voices: Buf[&Track] = buf()
+    val sounds: Buf[&Audio] = buf()
+    val voices: Buf[&Track] = buf()
 
     for i in 0..<notes.len
         val sound = blip(mixer, real(notes[i]), 220.0).expect("a note")
@@ -197,7 +197,7 @@ main(args: []string) -> Result[unit, string]
         rgb(130, 140, 160)).expect("the hint rendered")
 
     var ball = Ball(120.0, 90.0, 420.0, 0.0)
-    var trail: Buf[FPoint] = buf()
+    val trail: Buf[FPoint] = buf()
     var bounces = 0
     var fps = 0
     var frames = 0
