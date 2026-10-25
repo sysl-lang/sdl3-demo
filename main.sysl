@@ -22,6 +22,7 @@ import sh.sysl.sdl3_mixer.*
 import sysl.buf.{Buf, buf}
 import sysl.fs.is_file
 import sysl.math.{Float, pi}
+import sysl.raw.ptr_cast
 import sysl.slices.as_ptr
 
 const WIDTH: i32 = 800

@@ -19,7 +19,7 @@ sysl run .
 asked where that library's headers and link line are — so nothing about this machine's layout is typed
 here. Install a library and it is found; leave one out and the refusal names it.
 
-The prefix still cannot live in `package.hocon` — `design/15 §8` refuses a field for one, because
+The prefix still cannot live in `sysl.hocon` — `design/15 §8` refuses a field for one, because
 where Homebrew put itself is a fact about a laptop rather than a property of a package. What changed
 is who answers the question, not who is allowed to ask it. On a machine with no pkg-config, or a
 prefix you built yourself, `--include-path sdl3=<dir>` and `--link-path <dir>` still answer it and
